@@ -1,0 +1,74 @@
+#!/bin/sh -e
+
+echo "libxmconfig Configure 1.0.0"
+echo "Select your board bellow:"
+
+BOARD_NUM=0
+CONFIG=
+TMP=
+
+Board=
+HardVersion=
+SoftVersion=
+
+while read line
+do
+	config_name=`echo $line | sed -n 's/_config*$//p'`
+	[ -z "$config_name" ] && {
+		TMP=`echo $line | grep "^#!help: " | sed -n "s/^#!help: //p"`
+		[ -z "$TMP" ] && {
+			board_type=`echo $line | grep "Board = " | sed -n "s/Board = //p"`
+			[ -z "$board_type" ] && {
+				hard_ver=`echo $line | grep "HardVersion = " | sed -n "s/HardVersion = //p"`
+				[ -z "$hard_ver" ] && {
+				soft_ver=`echo $line | grep "SoftVersion = " | sed -n "s/SoftVersion = //p"`
+				[ -z "$soft_ver" ] && continue;
+				SoftVersion=$soft_ver
+				continue
+				}
+				HardVersion=$hard_ver
+				continue
+			}
+			Board=$board_type
+			continue
+		};
+		help_info="$TMP"
+		continue
+	}
+	((BOARD_NUM=BOARD_NUM+1))
+
+	eval "CONFIG${BOARD_NUM}=\"$config_name\""
+	eval "Board${BOARD_NUM}=\"$Board\""
+	eval "HardVersion${BOARD_NUM}=\"$HardVersion\""
+	eval "SoftVersion${BOARD_NUM}=\"$SoftVersion\""
+	
+	echo -n "  ${BOARD_NUM}. $config_name"
+
+	[ -z "$help_info" ] && { echo ""; continue; }
+
+	echo "	<$help_info>"
+
+	help_info=""
+
+done << EOF
+`cat xm_board*.mak`
+EOF
+
+[ $BOARD_NUM -le 0 ] && { echo "None of valid board found!"; exit 1; }
+
+echo -n "Please type your board number (1-$BOARD_NUM): "
+read sel
+
+eval "CONFIG=\"\$CONFIG$sel\""
+eval "Board=\"\$Board$sel\""
+eval "HardVersion=\"\$HardVersion$sel\""
+eval "SoftVersion=\"\$SoftVersion$sel\""
+
+[ -z "$CONFIG" ] && { echo "Input error, no such board!" > /dev/stderr; exit 1; }
+
+echo "$Board"
+echo "$HardVersion"
+echo "$SoftVersion"
+make clean Board=$Board
+make Board=$Board HardVersion=$HardVersion SoftVersion=$SoftVersion
+#make
